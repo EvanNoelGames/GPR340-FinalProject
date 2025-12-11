@@ -307,20 +307,10 @@ public class RTSGame : MonoBehaviour
         
         placeAudioSource.Play();
         
-        //tacticalPathfinding.SetAgent(guidingAgents[0]);
-        //List<RTSTile> newPath = tacticalPathfinding.FindBestPath(guidingAgents[0].GetCurrentTile(), currentWaypointComponent.GetTargetTileComponent(), grid);
-        
-        //AStar astar = new AStar();
-        //List<RTSTile> newPath = astar.FindPath(guidingAgents[0].GetCurrentTile(),
-        //    currentWaypointComponent.GetTargetTileComponent(), grid);
-        
-        //if (newPath.Count == 0) return;
         
         grid.NewTileHovered -= currentWaypointComponent.SetTargetTile;
         grid.TileExited -= currentWaypointComponent.ClearTile;
-
-        //guidingAgents[0].SetPath(newPath);
-
+        
         _tacticalPath = new TacticalPath();
         
         // Placing on tile
@@ -328,9 +318,14 @@ public class RTSGame : MonoBehaviour
         
         foreach (EvanTestAgent agent in guidingAgents)
         {
-            List<RTSTile> newPath = astar.FindPath(agent.GetCurrentTile(), targetTile, grid);
-            agent.SetPath(newPath);
-            targetTile.plannedOwner = agent.gameObject;
+           
+            if (agent != null)
+            {
+                List<RTSTile> newPath = astar.FindPath(agent.GetCurrentTile(), targetTile, grid);
+                agent.SetPath(newPath);
+                targetTile.plannedOwner = agent.gameObject;
+            }
+            
         }
         
         // else // Placing on enemy agent

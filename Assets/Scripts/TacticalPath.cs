@@ -40,6 +40,67 @@ public class TacticalPath
     {
         return Mathf.Abs(p1.x - p2.x) + Mathf.Abs(p1.y - p2.y);
     }
+
+    public RTSTile FindBestTile(RTSGrid grid, List<EvanTestAgent> agents)
+    {
+        Dictionary<RTSTile, float> spawnValues = new Dictionary<RTSTile, float>();
+
+        List<RTSTile> emptyTileLocations = grid.GetEmptyTiles();
+        List<RTSTile> playerLocations =  new List<RTSTile>();
+        
+        // find all the player agents locations
+        foreach (var agent in agents)
+        {
+            if (!agent.GetIsFriendly())
+            {
+                playerLocations.Add(agent.GetCurrentTile());
+            }
+        }
+        
+        List<Vector2Int> moneyTileLocations = grid.GetMoneyTiles(false);
+
+        foreach (var tile in emptyTileLocations)
+        {
+            // base value for a money tile
+            float spawnValue = 100;
+            float minDistanceToMoney = float.MaxValue;
+            foreach (var tileLocations in moneyTileLocations)
+            {
+                // find the distance to it
+                distance = Heuristic(tile.GetCurrentTilePosition(), tileLocations);
+               
+                if (distance < minDistanceToMoney)
+                {
+                    minDistanceToMoney = distance;
+                }
+                
+            }
+            
+            // find the distances to the player agents
+            float minDistanceToPlayer = float.MaxValue;
+            foreach(var players in playerLocations)
+            {
+                
+                distance = Heuristic(tile.GetCurrentTilePosition(), players.GetCurrentTilePosition());
+               
+                if (distance < minDistanceToPlayer)
+                {
+                    minDistanceToPlayer = distance;
+                }
+            }
+            // calculate the value from how close they are to money tiles and the player agents
+            spawnValue = spawnValue - minDistanceToMoney + (minDistanceToPlayer * 0.5f);
+            spawnValues.Add(tile, spawnValue);
+        }
+
+        if (spawnValues.Count == 0)
+        {
+            return null;
+        }
+        // grab the key with the best spawn value and return it
+        var bestSpawn =  spawnValues.Aggregate((x,y) => x.Value > y.Value ? x : y);
+        return bestSpawn.Key;
+    }
     
     public List<RTSTile> FindBestPath(RTSTile start, RTSGrid grid, List<EvanTestAgent> agents, Dictionary<RTSTile, int> targetTiles)
     {
@@ -56,6 +117,7 @@ public class TacticalPath
         // add all the money tile positions to the list 
         List<Vector2Int> moneyTileLocations = grid.GetMoneyTiles(false);
         List<RTSTile> playerLocations = new List<RTSTile>();
+       
 
         foreach (var agent in agents)
         {
@@ -70,9 +132,31 @@ public class TacticalPath
         {
             currentMinDistance = 18;
             // money tile locations
-            RTSTile newTile = grid.GetTileAtPosition(tileLocations); 
             
-            int tileValue = 300; 
+            RTSTile newTile = grid.GetTileAtPosition(tileLocations);
+            GameObject tileOwner = newTile.GetOwner();
+
+            if (newTile == start)
+            {
+                continue;
+            }
+            
+            int tileValue = 100;
+            if (newTile.GetIsHidden())
+            {
+                tileValue = 300; 
+            }
+            
+            EvanTestAgent agent = null;
+            if (tileOwner != null)
+            {
+                agent = tileOwner.GetComponent<EvanTestAgent>();
+                if (agent != null && !agent.GetIsFriendly())
+                {
+                    tileValue = 600;
+                }
+            }
+            
             
             // distance to money tile
             List<RTSTile> pathToMoneyTile = _aStar.FindPath(start, newTile, grid);
@@ -96,23 +180,27 @@ public class TacticalPath
                 }
             }
 
-            // if tiles are found that other agents are targeting apply a penalty
-            if (targetTiles.TryGetValue(newTile, out var value))
+            if (tileOwner == null || (agent != null && agent.GetIsFriendly()))
             {
-                agentPenalty = value * value * 40;
+                // if tiles are found that other agents are targeting apply a penalty
+                if (targetTiles.TryGetValue(newTile, out var value))
+                {
+                    agentPenalty = value * value * 10;
+                }
+                else
+                {
+                    agentPenalty = value * 5;
+                }
+
             }
             else
             {
                 agentPenalty = 0;
             }
-           
-            // calculate the threat by using the enemies distance 
-            float threat = 1.0f / currentMinDistance > 0 ? 1.0f / currentMinDistance : float.MaxValue;
-            
-            float threatDistanceWeight = 0.1f; 
             
             // find the tactical value of the tile from the value of the money to its distance and the amount of agents targteting it and how close enemy agents are
-            float tacticalValue = tileValue - distanceToMoneyTile - agentPenalty - (threat * threatDistanceWeight); 
+            float tacticalValue = tileValue - distanceToMoneyTile - agentPenalty; 
+            
             _usefulTiles.Add(newTile, tacticalValue);
         }
         

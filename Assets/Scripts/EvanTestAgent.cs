@@ -208,10 +208,18 @@ public class EvanTestAgent : MonoBehaviour
     public void SetPath(List<RTSTile> newPath)
     {
         path = newPath;
-       
-        targetTile = path[0];
-        waypoint = targetTile.transform.position + Vector3.back * 3;
-        isMoving = true;
+
+        if (path.Count > 0 && path[0] == currentTile)
+        {
+            path.RemoveAt(0);
+        }
+        
+        if(path.Count > 0)
+        {
+            targetTile = path[0];
+            waypoint = targetTile.transform.position + Vector3.back * 3;
+            isMoving = true;
+        }
     }
 
     public void ClearPath()

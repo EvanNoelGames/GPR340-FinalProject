@@ -39,9 +39,34 @@ public class Enemy : MonoBehaviour
     {
         yield return new WaitForSeconds(1 * spawnInterval);
         
+        _tacticalPath = new TacticalPath(); 
         while (_rtsGame.GetIsRunning())
         {
-            SpawnEnemy(_rtsGrid.GetEmptyTiles()[Random.Range(0, _rtsGrid.GetEmptyTiles().Count)]);
+            List<EvanTestAgent> agents = _rtsGame.GetAllAgents();
+            RTSTile spawnTile = null;
+            
+            // 50% chose a spawn tile with tactical advantage
+            if (Random.value < 0.5f)
+            {
+                spawnTile = _tacticalPath.FindBestTile(_rtsGrid, agents);
+            }
+            // if a spawn tile hasnt been found 
+            if (spawnTile == null)
+            {
+                List<RTSTile> emptyTiles = _rtsGrid.GetEmptyTiles();
+                if (emptyTiles.Count > 0)
+                {
+                    // spawn at an empty tile
+                    spawnTile = emptyTiles[Random.Range(0, emptyTiles.Count)];
+                }
+                else
+                {
+                    Debug.LogWarning("No empty tiles available for spawning");
+                    yield return new WaitForSeconds(Random.Range(0.2f * spawnInterval, 5.0f * spawnInterval));
+                    continue; 
+                }
+            }
+            SpawnEnemy(spawnTile);
             yield return new WaitForSeconds(Random.Range(0.2f * spawnInterval, 5.0f * spawnInterval));
         }
     }
@@ -60,11 +85,6 @@ public class Enemy : MonoBehaviour
         
         GameObject newEnemy = Instantiate(agentPrefab);
         newEnemy.transform.position = tile.transform.position + (Vector3.back * 3);
-
-        //List<RTSTile> path = new List<RTSTile>();
-       
-
-        
         
         EvanTestAgent agentComponent = newEnemy.GetComponent<EvanTestAgent>();
         
@@ -81,18 +101,12 @@ public class Enemy : MonoBehaviour
         agentComponent.SetCurrentTile(tile);
 
         List<Vector2Int> moneyTileLocations = _rtsGrid.GetMoneyTiles(false);
-        
-        
 
         List<EvanTestAgent> agents = _rtsGame.GetAllAgents();
-        
-        //EvanTestAgent agent = _rtsGame.GetAgent();
         
         // find the best path
         _tacticalPath = new TacticalPath();
         List<RTSTile> bestPath =  _tacticalPath.FindBestPath(tile, _rtsGrid, agents, _tilesBeingTargeted);
-        
-       
 
         if (bestPath != null && bestPath.Count > 0)
         {
@@ -123,16 +137,6 @@ public class Enemy : MonoBehaviour
             
             agentComponent.SetWaypoint(closetTile);
         }
-        
-        /*if (closetTile == null)
-        {
-            closetTile =  _rtsGrid.GetEmptyTiles()[Random.Range(0, _rtsGrid.GetEmptyTiles().Count)];
-        }*/
-
-        /*if (closetTile != null)
-        {
-            agentComponent.SetWaypoint(closetTile);
-        }*/
     }
 
     public void SetAgentCost(int newValue)
